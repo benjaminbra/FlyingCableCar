@@ -118,8 +118,8 @@ unsigned int readDistance () {
   return period * 343 / 2000;
 }
 
-#define NUM_ANGLES 7
-unsigned char sensorAngle[NUM_ANGLES] = { 30, 40, 50, 60, 70, 80, 90 };
+#define NUM_ANGLES 5
+unsigned char sensorAngle[NUM_ANGLES] = { 40, 50, 60, 70, 80 };
 unsigned int distance[NUM_ANGLES];
 // Scan the area ahead by sweeping the ultrasonic sensor left and right
 // and recording the distance observed. This takes a reading , then
@@ -186,11 +186,11 @@ int * controllerMoving(float forwardAxis, float leftAxis){
       }
     } else {
       if(leftAxis > 70){
-        left = 128;
-        right = -128;
-      } else if(leftAxis < -70){
         left = -128;
         right = 128;
+      } else if(leftAxis < -70){
+        left = 128;
+        right = -128;
       } 
     }
     
@@ -204,12 +204,17 @@ int * controllerMoving(float forwardAxis, float leftAxis){
 }
 
 void motorAngle(float leftAxis){
-  if(leftAxis >= 6){
-    leftAxis = 6;
-  } else if(leftAxis <= 0){
-    leftAxis = 0;
+  int roundAxis = (int) floor(leftAxis);
+  if(roundAxis >= 6){
+    roundAxis = 4;
+  } else if(roundAxis <= 0){
+    roundAxis = 0;
+  } else if(roundAxis == 5) {
+    roundAxis = 3;
+  } else if(roundAxis == 2 || roundAxis == 3 || roundAxis == 4){
+    roundAxis = 2;
   }
-  servo.write(sensorAngle[(int) floor(leftAxis)]);
+  servo.write(sensorAngle[roundAxis]);
 }
 
 void nitroHandler(float power){
@@ -222,11 +227,9 @@ void nitroHandler(float power){
     nitroSpeed = 1700;
   } else if (power > -75) {
     nitroSpeed = 1800;
-  } else if( power > -175) {
-    nitroSpeed = 1900;
   } else {
-    nitroSpeed = 2000;
-  }
+    nitroSpeed = 1900;
+  } 
   
   nitro.writeMicroseconds(nitroSpeed);
 }
@@ -292,15 +295,18 @@ void setup () {
 // Otherwise, go forward
 //
 void loop() {
-  float * commands = getControllerValue();
-  int * axis = controllerMoving(commands[0], commands[1]);
-  motorAngle(commands[2]);
-  nitroHandler(commands[4]);
-
-
   
-  go(LEFT, axis[0]);
-  go(RIGHT, axis[1]);
+  float * commands = getControllerValue();
+  if(commands[3] > 100){
+    int * axis = controllerMoving(commands[0], commands[1]);
+    motorAngle(commands[2]);
+    
+    go(LEFT, axis[0]);
+    go(RIGHT, axis[1]);
+  } else if(commands[3] < 100){
+    autoMode();
+  }
+  nitroHandler(commands[4]);
   // Check the next direction in 50 ms
   delay (50);
 
