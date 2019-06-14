@@ -12,21 +12,26 @@
 #include <EnableInterrupt.h>
 
 #define SERIAL_PORT_SPEED 57600
-#define RC_NUM_CHANNELS  3
+#define RC_NUM_CHANNELS  5
 
-#define RC_CH1  0
-#define RC_CH2  1
-#define RC_CH3  2
+#define RC_CH1  0 // Forward Axis
+#define RC_CH2  1 // Left Axis
+#define RC_CH3  2 // Servo Left Axis
+#define RC_CH4  3 // Hand mode
+#define RC_CH5  4 // Servo Nitro 
 
 #define RC_CH1_INPUT  A0
 #define RC_CH2_INPUT  A1
 #define RC_CH3_INPUT  A2
+#define RC_CH4_INPUT  A3
+#define RC_CH5_INPUT  A4
 
 uint16_t rc_values[RC_NUM_CHANNELS];
 uint32_t rc_start[RC_NUM_CHANNELS];
 volatile uint16_t rc_shared[RC_NUM_CHANNELS];
 
 Servo servo;
+Servo nitro;
 // Ultrasonic Module pins
 const int trigPin = 13; // 10 microsecond high pulse causes chirp , wait 50 us
 const int echoPin = 12; // Width of high pulse indicates distance
@@ -39,6 +44,7 @@ const int in2Pin = 5; // Left motor Direction 2
 const int in3Pin = 4; // Right motor Direction 1
 const int in4Pin = 2; // Right motor Direction 2
 const int enBPin = 3; // Right motor PWM speed control
+const int inNitroPin = 8;
 
 enum Motor { LEFT, RIGHT };
 
@@ -67,16 +73,20 @@ void calc_input(uint8_t channel, uint8_t input_pin) {
 void calc_ch1() { calc_input(RC_CH1, RC_CH1_INPUT); }
 void calc_ch2() { calc_input(RC_CH2, RC_CH2_INPUT); }
 void calc_ch3() { calc_input(RC_CH3, RC_CH3_INPUT); }
+void calc_ch4() { calc_input(RC_CH4, RC_CH4_INPUT); }
+void calc_ch5() { calc_input(RC_CH5, RC_CH5_INPUT); }
 
 float * getControllerValue() {
   rc_read_values();
 
-  static float r[3];
+  static float r[5];
   // r[0] is the acceleration we want for the car (from 255 to -255)
   // r[1] is the rotation of wheels(from 255(left) to -255(rigth))
-  r[0] = -((((rc_values[RC_CH1]/10.0)-110)/81)*500 - 255);
-  r[1] = -((((rc_values[RC_CH2]/10.0)-110)/81)*500 - 255);
-  r[2] = -((((rc_values[RC_CH3]/10.0)-110)/81)*500 - 255);
+  r[0] = -((((rc_values[RC_CH1]/10.0)-110)/81)*500 - 255); // Forward Axis
+  r[1] = -((((rc_values[RC_CH2]/10.0)-110)/81)*500 - 255); // Left Axis
+  r[2] = 6 - ((((rc_values[RC_CH3]/10.0)-110)/81)*6); // Servo Left Axis
+  r[3] = -((((rc_values[RC_CH4]/10.0)-110)/81)*500 - 255); // Hand Mode
+  r[4] = -((((rc_values[RC_CH5]/10.0)-110)/81)*500 - 255); // Nitro Mode
 
   return r;
 }
@@ -109,7 +119,7 @@ unsigned int readDistance () {
 }
 
 #define NUM_ANGLES 7
-unsigned char sensorAngle[NUM_ANGLES] = { 60, 70, 80, 90, 100, 110, 120 };
+unsigned char sensorAngle[NUM_ANGLES] = { 30, 40, 50, 60, 70, 80, 90 };
 unsigned int distance[NUM_ANGLES];
 // Scan the area ahead by sweeping the ultrasonic sensor left and right
 // and recording the distance observed. This takes a reading , then
@@ -154,33 +164,33 @@ int * controllerMoving(float forwardAxis, float leftAxis){
 
     if(forwardAxis > 70){
       if(leftAxis > 70){
-        left = 255;
-        right = 128;
-      } else if(leftAxis < -70){
         left = 128;
         right = 255;
+      } else if(leftAxis < -70){
+        left = 255;
+        right = 128;
       } else {
         left = 255;
         right = 255;
       }
     } else if (forwardAxis < -70){
       if(leftAxis > 70){
-        left = -255;
-        right = -128;
-      } else if(leftAxis < -70){
         left = -128;
         right = -255;
+      } else if(leftAxis < -70){
+        left = -255;
+        right = -128;
       } else {
         left = -255;
         right = -255;
       }
     } else {
       if(leftAxis > 70){
-        left = -128;
-        right = 128;
-      } else if(leftAxis < -70){
         left = 128;
         right = -128;
+      } else if(leftAxis < -70){
+        left = -128;
+        right = 128;
       } 
     }
     
@@ -194,10 +204,31 @@ int * controllerMoving(float forwardAxis, float leftAxis){
 }
 
 void motorAngle(float leftAxis){
-  float fixedAxis = leftAxis + 255;
-  float newAngle = fixedAxis / 510 * 7;
+  if(leftAxis >= 6){
+    leftAxis = 6;
+  } else if(leftAxis <= 0){
+    leftAxis = 0;
+  }
+  servo.write(sensorAngle[(int) floor(leftAxis)]);
+}
 
-  servo.write(sensorAngle[(int) round(newAngle)]);
+void nitroHandler(float power){
+  int nitroSpeed = 0;
+  if(power > 175){
+    nitroSpeed = 0;
+  } else if (power > 100) {
+    nitroSpeed = 1600;
+  } else if (power > 75) {
+    nitroSpeed = 1700;
+  } else if (power > -75) {
+    nitroSpeed = 1800;
+  } else if( power > -175) {
+    nitroSpeed = 1900;
+  } else {
+    nitroSpeed = 2000;
+  }
+  
+  nitro.writeMicroseconds(nitroSpeed);
 }
 
 // Initial configuration
@@ -219,28 +250,39 @@ void setup () {
   pinMode(in3Pin, OUTPUT);
   pinMode(in4Pin, OUTPUT);
   pinMode(enBPin, OUTPUT);
+  pinMode(inNitroPin, OUTPUT);
   pinMode(RC_CH1_INPUT, INPUT);
   pinMode(RC_CH2_INPUT, INPUT);
   pinMode(RC_CH3_INPUT, INPUT);
+  pinMode(RC_CH4_INPUT, INPUT);
+  pinMode(RC_CH5_INPUT, INPUT);
 
   
   servo.attach(servoPin);
-  servo.write (90); 
+  nitro.attach(inNitroPin);
+  
+  delay(5000);
+  
+  servo.write(90);
+  // Starting Nitro Servo by sending a small signal
+  nitro.writeMicroseconds(500);
 
   enableInterrupt(RC_CH1_INPUT, calc_ch1, CHANGE);
   enableInterrupt(RC_CH2_INPUT, calc_ch2, CHANGE);
   enableInterrupt(RC_CH3_INPUT, calc_ch3, CHANGE);
+  enableInterrupt(RC_CH4_INPUT, calc_ch4, CHANGE);
+  enableInterrupt(RC_CH5_INPUT, calc_ch5, CHANGE);
   
   go(LEFT, 0);
   go(RIGHT, 0);
   testMotors();
   // Scan the surroundings before starting
-  servo.write(sensorAngle[0]);
+  //servo.write(sensorAngle[3]);
   delay(200);
-  for (unsigned char i = 0 ; i < NUM_ANGLES ; i ++){
-    readNextDistance ();
-    delay (200);
-  }
+
+  servo.write(sensorAngle[3]);
+  delay(2000);
+  
 }
 
 // Main loop:
@@ -253,7 +295,10 @@ void loop() {
   float * commands = getControllerValue();
   int * axis = controllerMoving(commands[0], commands[1]);
   motorAngle(commands[2]);
+  nitroHandler(commands[4]);
 
+
+  
   go(LEFT, axis[0]);
   go(RIGHT, axis[1]);
   // Check the next direction in 50 ms
