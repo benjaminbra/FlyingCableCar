@@ -45,6 +45,7 @@ const int in3Pin = 4; // Right motor Direction 1
 const int in4Pin = 2; // Right motor Direction 2
 const int enBPin = 3; // Right motor PWM speed control
 const int inNitroPin = 8;
+int backDelay = 0;
 
 enum Motor { LEFT, RIGHT };
 
@@ -135,24 +136,70 @@ void readNextDistance ()
   servo.write(sensorAngle[angleIndex]);
 }
 
-void autoMode(){
-  readNextDistance ();
-  // See if something is too close at any angle
-  unsigned char tooClose = 0;
-  
-  for (unsigned int i = 0; i < NUM_ANGLES; i++) {
-    if ( distance[i] < 300) {
-      tooClose = 1; 
-    }
+void forwardToAngle(int angleIndex){
+  int delayWait = 1;
+  switch(angleIndex){
+    case 0:
+      go(LEFT, 220);
+      go(RIGHT, 255);
+      delayWait = 2;
+      break;
+    case 1:
+      go(LEFT, 220);
+      go(RIGHT, 255);
+      delayWait = 1;
+      break;
+    case 2:
+      go(LEFT, 255);
+      go(RIGHT, 255);
+      delayWait = 2;
+      break;
+    case 3:
+      go(LEFT, 255);
+      go(RIGHT, 220);
+      delayWait = 1;
+      break;
+    case 4:
+      go(LEFT, 255);
+      go(RIGHT, 220);
+      delayWait = 2;
+      break;
   }
-  if (tooClose) {
-    // Something's nearby: back up left
-    go(LEFT, -180);
-    go(RIGHT, -80);
+  delay(100*delayWait);
+}
+
+void autoMode(){
+  if(backDelay==0){
+    readNextDistance ();
+    // See if something is too close at any angle
+    unsigned char tooClose = 0;
+    unsigned int longerAngleIndex = -1;
+    unsigned int longerAngleValue = 0;
+    for (unsigned int i = 0; i < NUM_ANGLES; i++) {
+      
+      if(distance[i] < 100){
+        tooClose = 1;
+      }
+      
+      if(distance[i] >= 300){
+        if(longerAngleIndex == -1 || distance[i] > longerAngleValue){
+          longerAngleIndex = i;
+          longerAngleValue = distance[i];
+        }
+      }
+    }
+    
+    if (tooClose) {
+      // Something's nearby: back up left
+      go(LEFT, -255);
+      go(RIGHT, -180);
+      backDelay = 10;
+    } else {
+      // Nothing in our way: go forward
+      forwardToAngle(longerAngleIndex);
+    } 
   } else {
-    // Nothing in our way: go forward
-    go(LEFT, 255);
-    go(RIGHT, 255);
+    backDelay--;
   }
 }
 
@@ -245,6 +292,7 @@ void nitroHandler(float power){
 void setup () {
   Serial.begin(SERIAL_PORT_SPEED);
   pinMode(trigPin , OUTPUT);
+  
   pinMode(echoPin, INPUT);
   digitalWrite ( trigPin , LOW);
   pinMode(enAPin, OUTPUT);
@@ -297,15 +345,15 @@ void setup () {
 void loop() {
   
   float * commands = getControllerValue();
-  if(commands[3] > 100){
+  if(commands[3] < 100){
+    autoMode();
+  } else if(commands[3] > 100){
     int * axis = controllerMoving(commands[0], commands[1]);
     motorAngle(commands[2]);
     
     go(LEFT, axis[0]);
     go(RIGHT, axis[1]);
-  } else if(commands[3] < 100){
-    autoMode();
-  }
+  } 
   nitroHandler(commands[4]);
   // Check the next direction in 50 ms
   delay (50);
