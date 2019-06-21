@@ -45,6 +45,7 @@ const int in3Pin = 4; // Right motor Direction 1
 const int in4Pin = 2; // Right motor Direction 2
 const int enBPin = 3; // Right motor PWM speed control
 const int inNitroPin = 8;
+int firstSignal = 0;
 
 enum Motor { LEFT, RIGHT };
 
@@ -119,7 +120,7 @@ unsigned int readDistance () {
 }
 
 #define NUM_ANGLES 5
-unsigned char sensorAngle[NUM_ANGLES] = { 40, 50, 60, 70, 80 };
+unsigned char sensorAngle[NUM_ANGLES] = { 70, 80, 90, 100, 110 };
 unsigned int distance[NUM_ANGLES];
 // Scan the area ahead by sweeping the ultrasonic sensor left and right
 // and recording the distance observed. This takes a reading , then
@@ -234,7 +235,6 @@ int * controllerMoving(float forwardAxis, float leftAxis){
         right = -128;
       } 
     }
-    
   }
   
   static int r[2];
@@ -339,7 +339,13 @@ void setup () {
 void loop() {
   
   float * commands = getControllerValue();
-  if(commands[3] < 100){
+  bool automod = true;
+  if(firstSignal == 0){
+    firstSignal = commands[3];
+  } else if (commands[3] > firstSignal + 50 || commands[3] < firstSignal - 50){
+    automod = false;
+  }
+  if(commands[3] < 100 || automod){
     autoMode();
   } else if(commands[3] > 100){
     int * axis = controllerMoving(commands[0], commands[1]);
