@@ -45,7 +45,6 @@ const int in3Pin = 4; // Right motor Direction 1
 const int in4Pin = 2; // Right motor Direction 2
 const int enBPin = 3; // Right motor PWM speed control
 const int inNitroPin = 8;
-int backDelay = 0;
 
 enum Motor { LEFT, RIGHT };
 
@@ -169,37 +168,32 @@ void forwardToAngle(int angleIndex){
 }
 
 void autoMode(){
-  if(backDelay==0){
-    readNextDistance ();
-    // See if something is too close at any angle
-    unsigned char tooClose = 0;
-    unsigned int longerAngleIndex = -1;
-    unsigned int longerAngleValue = 0;
-    for (unsigned int i = 0; i < NUM_ANGLES; i++) {
-      
-      if(distance[i] < 100){
-        tooClose = 1;
-      }
-      
-      if(distance[i] >= 300){
-        if(longerAngleIndex == -1 || distance[i] > longerAngleValue){
-          longerAngleIndex = i;
-          longerAngleValue = distance[i];
-        }
-      }
+  readNextDistance ();
+  // See if something is too close at any angle
+  unsigned char tooClose = 0;
+  unsigned int longerAngleIndex = -1;
+  unsigned int longerAngleValue = 0;
+  for (unsigned int i = 0; i < NUM_ANGLES; i++) {
+    
+    if(distance[i] < 200){
+      tooClose = 1;
     }
     
-    if (tooClose) {
-      // Something's nearby: back up left
-      go(LEFT, -255);
-      go(RIGHT, -180);
-      backDelay = 10;
-    } else {
-      // Nothing in our way: go forward
-      forwardToAngle(longerAngleIndex);
-    } 
+    if(distance[i] >= 300){
+      if(longerAngleIndex == -1 || distance[i] > longerAngleValue){
+        longerAngleIndex = i;
+        longerAngleValue = distance[i];
+      }
+    }
+  }
+  
+  if (tooClose) {
+    // Something's nearby: back up left
+    go(LEFT, -255);
+    go(RIGHT, -180);
   } else {
-    backDelay--;
+    // Nothing in our way: go forward
+    forwardToAngle(longerAngleIndex);
   }
 }
 
