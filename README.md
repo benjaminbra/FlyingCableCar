@@ -10,7 +10,7 @@ The main parts are the following:
 
 * [Smart Car Tracking Kit](https://www.ebay.co.uk/p/Smart-Car-Tracking-Motor-2wd-Kit-Ultrasonic-Hc-sr04-Sensor-for-Arduino-DIY-B3m8/17013379528) that contain an Arduino clone and a sensor-shield
 * RadioLink AT9 controller/R9D receiver(any cheaper may do the job, we just had this one)
-* AA battery
+* AA battery (4 for the car, maybe more for the controller)
 
 As you may see in the attached document, there were other parts, that are not vital but still fun like:
 
@@ -23,5 +23,7 @@ You can find the code for the fully handcontrolled prototype we made.
 To make it work, follow the following diagram (taking what you want from it) and upload the code on the arduino:
 
 ![Electrical scheme of FlyingcableCar](img/scheme.png)
+
+We also used a [documentation](http://www.cs.columbia.edu/~sedwards/presentations/robot-car-instructions.pdf) for the car kit that may be kind of a great start. Some of our scheme are copied from it.
 
 It was a lot of fun doing this, so we hope you'll enjoy it :D
